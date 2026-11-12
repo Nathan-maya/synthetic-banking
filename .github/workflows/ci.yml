@@ -19,6 +19,7 @@ jobs:
   validate:
     name: Code Quality, Tests and Bundle Validation
     runs-on: ubuntu-latest
+    environment: dev
 
     env:
       DATABRICKS_AUTH_TYPE: pat
