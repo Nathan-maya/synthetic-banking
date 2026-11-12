@@ -40,8 +40,12 @@ jobs:
       - name: Build Python Wheel
         run: uv build --wheel
 
-      - name: Validate Databricks Bundle
-        uses: databricks/setup-cli@main
+      - name: Validate Bundle configuration
+        env:
+          DATABRICKS_AUTH_TYPE: pat
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: databricks bundle validate -t dev
 
       - name: Validate Bundle configuration
         run: databricks bundle validate -t dev
