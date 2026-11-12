@@ -1,10 +1,41 @@
-data/sample/
-data/full/
+
+# Synthetic data
+/data/sample/
+/data/full/
+
+# Databricks
 .databricks/
+
+# Python environments
 .venv/
-.pytest_cache/
-dist/
-*.egg-info/
-pyproject.toml.bak
+.venv-local/
+venv/
+
+# Python cache
 __pycache__/
 *.py[cod]
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# Backup files
+pyproject.toml.bak
+
+# Logs
+*.log
