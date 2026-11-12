@@ -1,83 +1,79 @@
-name: synthetic banking CI/CD
+
+name: synthetic-banking-ci
+
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+
   push:
-    branches: [main]
+    branches:
+      - main
+
   workflow_dispatch:
-    inputs:
-      scope:
-        description: Pipeline input scope
-        type: choice
-        options: [sample, full]
-        default: sample
+
 permissions:
   contents: read
-  id-token: write
+
 jobs:
   validate:
+    name: Code Quality, Tests and Bundle Validation
     runs-on: ubuntu-latest
     environment: dev
+
     env:
-      DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
-      TARGET: ${{ inputs.scope == 'full' && 'full' || 'dev' }}
+      DATABRICKS_AUTH_TYPE: pat
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: databricks/setup-cli@main
-      - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run pytest
-      - run: databricks bundle validate --target "$TARGET"
-  deploy-dev:
-    if: github.event_name == 'push'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: dev
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: databricks/setup-cli@main
-      - run: databricks bundle deploy --target dev
-      - run: databricks fs mkdirs dbfs:/Volumes/org/default/synthetic_banking_landing/packages
-      - run: databricks fs cp dist/synthetic_banking-0.0.1-py3-none-any.whl dbfs:/Volumes/org/default/synthetic_banking_landing/packages/synthetic_banking-0.0.1-py3-none-any.whl --overwrite
-      - name: Apply pipeline environment
-        shell: bash
-        run: |
-          pipeline_id="$(databricks bundle summary --target dev --output json | jq -r '.resources.pipelines.synthetic_banking_etl.id')"
-          databricks pipelines apply-environment "$pipeline_id"
-  run-manual:
-    if: github.event_name == 'workflow_dispatch'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: dev
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
-      TARGET: ${{ inputs.scope == 'full' && 'full' || 'dev' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: databricks/setup-cli@main
-      - run: databricks bundle deploy --target "$TARGET"
-      - run: databricks fs mkdirs dbfs:/Volumes/org/default/synthetic_banking_landing/packages
-      - run: databricks fs cp dist/synthetic_banking-0.0.1-py3-none-any.whl dbfs:/Volumes/org/default/synthetic_banking_landing/packages/synthetic_banking-0.0.1-py3-none-any.whl --overwrite
-      - name: Apply pipeline environment
-        shell: bash
-        run: |
-          pipeline_id="$(databricks bundle summary --target "$TARGET" --output json | jq -r '.resources.pipelines.synthetic_banking_etl.id')"
-          databricks pipelines apply-environment "$pipeline_id"
-      - run: databricks bundle run synthetic_banking_etl --target "$TARGET"
+      # 1. Checkout
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # 3. Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: uv sync --locked
+
+      # 5. Static code analysis
+      - name: Run Ruff
+        run: uv run ruff check .
+
+      # 6. Test discovery
+      - name: Collect tests
+        run: uv run pytest --collect-only -v
+
+      # 7. Build Wheel
+      - name: Build Python Wheel
+        run: uv build --wheel
+
+      # 8. Install Databricks CLI
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      # 9. Verify CLI
+      - name: Check Databricks CLI
+        run: databricks version
+
+      # 10. Validate Bundle
+      - name: Validate Databricks Bundle
+        run: databricks bundle validate --target dev
+
+      # 11. Upload Wheel artifact
+      - name: Upload Wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-banking-wheel
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 7

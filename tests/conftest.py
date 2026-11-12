@@ -1,96 +1,55 @@
-"""This file configures pytest, initializes Databricks Connect, and provides fixtures for Spark and loading test data."""
 
+"""Pytest fixtures for Synthetic Banking."""
+
+import csv
+import json
 import os
-import pathlib
-import sys
-from contextlib import contextmanager
+from pathlib import Path
 
-try:
-    import csv
-    import json
-    import os
+import pytest
 
-    import pytest
+
+@pytest.fixture(scope="session")
+def spark():
+    """Create a Databricks Connect session only when a test requests Spark."""
     from databricks.connect import DatabricksSession
-    from databricks.sdk import WorkspaceClient
-    from pyspark.sql import SparkSession
-except ImportError:
-    raise ImportError(
-        "Test dependencies not found.\n\nRun tests using 'uv run pytest'. See http://docs.astral.sh/uv to learn more about uv."
-    )
+
+    builder = DatabricksSession.builder
+
+    if not (
+        os.getenv("DATABRICKS_SERVERLESS_COMPUTE_ID")
+        or os.getenv("DATABRICKS_CLUSTER_ID")
+        or os.getenv("SPARK_REMOTE")
+    ):
+        os.environ["DATABRICKS_SERVERLESS_COMPUTE_ID"] = "auto"
+
+    if hasattr(builder, "validateSession"):
+        return builder.validateSession().getOrCreate()
+
+    return builder.getOrCreate()
 
 
 @pytest.fixture()
-def spark() -> SparkSession:
-    """Provide a SparkSession fixture for tests.
-
-    Minimal example:
-        def test_uses_spark(spark):
-            df = spark.createDataFrame([(1,)], ["x"])
-            assert df.count() == 1
-    """
-    return DatabricksSession.builder.getOrCreate()
-
-
-@pytest.fixture()
-def load_fixture(spark: SparkSession):
-    """Provide a callable to load JSON or CSV from fixtures/ directory.
-
-    Example usage:
-
-        def test_using_fixture(load_fixture):
-            data = load_fixture("my_data.json")
-            assert data.count() >= 1
-    """
+def load_fixture(spark):
+    """Load JSON or CSV files from the fixtures directory."""
 
     def _loader(filename: str):
-        path = pathlib.Path(__file__).parent.parent / "fixtures" / filename
+        path = Path(__file__).parent.parent / "fixtures" / filename
+
+        if not path.exists():
+            raise FileNotFoundError(f"Fixture not found: {path}")
+
         suffix = path.suffix.lower()
+
         if suffix == ".json":
-            rows = json.loads(path.read_text())
+            rows = json.loads(path.read_text(encoding="utf-8"))
             return spark.createDataFrame(rows)
+
         if suffix == ".csv":
-            with path.open(newline="") as f:
-                rows = list(csv.DictReader(f))
+            with path.open(newline="", encoding="utf-8") as file:
+                rows = list(csv.DictReader(file))
             return spark.createDataFrame(rows)
-        raise ValueError(f"Unsupported fixture type for: {filename}")
+
+        raise ValueError(f"Unsupported fixture type: {filename}")
 
     return _loader
-
-
-def _enable_fallback_compute():
-    """Enable serverless compute if no compute is specified."""
-    conf = WorkspaceClient().config
-    if conf.serverless_compute_id or conf.cluster_id or os.environ.get("SPARK_REMOTE"):
-        return
-
-    url = "https://docs.databricks.com/dev-tools/databricks-connect/cluster-config"
-    print("☁️ no compute specified, falling back to serverless compute", file=sys.stderr)
-    print(f"  see {url} for manual configuration", file=sys.stdout)
-
-    os.environ["DATABRICKS_SERVERLESS_COMPUTE_ID"] = "auto"
-
-
-@contextmanager
-def _allow_stderr_output(config: pytest.Config):
-    """Temporarily disable pytest output capture."""
-    capman = config.pluginmanager.get_plugin("capturemanager")
-    if capman:
-        with capman.global_and_fixture_disabled():
-            yield
-    else:
-        yield
-
-
-def pytest_configure(config: pytest.Config):
-    """Configure pytest session."""
-    with _allow_stderr_output(config):
-        _enable_fallback_compute()
-
-        # Initialize Spark session eagerly, so it is available even when
-        # SparkSession.builder.getOrCreate() is used. For DB Connect 15+,
-        # we validate version compatibility with the remote cluster.
-        if hasattr(DatabricksSession.builder, "validateSession"):
-            DatabricksSession.builder.validateSession().getOrCreate()
-        else:
-            DatabricksSession.builder.getOrCreate()

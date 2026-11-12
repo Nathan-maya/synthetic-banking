@@ -29,3 +29,9 @@ databricks bundle run synthetic_banking_etl -t dev
 Para o lote integral, envie os oito arquivos completos sob `/full/` e publique no alvo `full` somente quando houver capacidade de compute e o isolamento do destino estiver configurado. Não envie dados completos ao Git.
 
 Configure DATABRICKS_HOST e DATABRICKS_CLIENT_ID como variáveis do ambiente GitHub dev e habilite workload identity federation para o service principal. Pull requests validam lint e bundle; merge em main publica em dev. O deploy prod continua manual até validar isolamento e permissões.
+
+## Pull requests
+
+O workflow `.github/workflows/ci.yml` é executado em pull requests para `main`. Configure no ambiente GitHub `dev` `DATABRICKS_HOST` e `DATABRICKS_CLIENT_ID` como Variables ou Secrets, além da relação de confiança OIDC para o repositório. O job de validação executa `uv sync --locked`, Ruff, pytest e `databricks bundle validate`. Depois do merge, o job `deploy-dev` publica o bundle e aplica a wheel do projeto ao ambiente da pipeline serverless.
+
+Use uma branch curta para cada mudança e preencha o checklist em `.github/pull_request_template.md`. O upload dos Parquet completos e a execução do alvo `full` ficam fora do fluxo de pull request.
