@@ -1,0 +1,10 @@
+data/sample/
+data/full/
+.databricks/
+.venv/
+.pytest_cache/
+dist/
+*.egg-info/
+pyproject.toml.bak
+__pycache__/
+*.py[cod]

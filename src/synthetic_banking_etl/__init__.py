@@ -1,0 +1,1 @@
+"""Synthetic banking lakehouse package."""

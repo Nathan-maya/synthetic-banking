@@ -1,0 +1,26 @@
+# The main pipeline for synthetic_banking
+
+resources:
+  pipelines:
+    synthetic_banking_etl:
+      name: synthetic_banking_etl
+      catalog: ${var.catalog}
+      schema: ${var.schema}
+      serverless: true
+      continuous: false
+      edition: ADVANCED
+      root_path: "../src/synthetic_banking_etl"
+
+      libraries:
+        - glob:
+            include: ../src/synthetic_banking_etl/transformations/**
+
+      environment:
+        dependencies:
+          - /Volumes/org/default/synthetic_banking_landing/packages/synthetic_banking-0.0.1-py3-none-any.whl
+      configuration:
+        landing_path: ${var.landing_path}
+      event_log:
+        catalog: ${var.catalog}
+        schema: ${var.schema}
+        name: synthetic_banking_etl_event_log

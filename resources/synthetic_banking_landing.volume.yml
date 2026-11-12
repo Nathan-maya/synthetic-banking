@@ -1,0 +1,7 @@
+resources:
+  volumes:
+    synthetic_banking_landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${var.schema}
+      name: synthetic_banking_landing
+      volume_type: MANAGED
