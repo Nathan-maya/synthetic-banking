@@ -20,8 +20,8 @@ jobs:
     environment: dev
     env:
       DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST || secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID || secrets.DATABRICKS_CLIENT_ID }}
       TARGET: ${{ inputs.scope == 'full' && 'full' || 'dev' }}
     steps:
       - uses: actions/checkout@v4
@@ -41,8 +41,8 @@ jobs:
       id-token: write
     env:
       DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST || secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID || secrets.DATABRICKS_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -65,8 +65,8 @@ jobs:
       id-token: write
     env:
       DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID }}
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST || secrets.DATABRICKS_HOST }}
+      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID || secrets.DATABRICKS_CLIENT_ID }}
       TARGET: ${{ inputs.scope == 'full' && 'full' || 'dev' }}
     steps:
       - uses: actions/checkout@v4

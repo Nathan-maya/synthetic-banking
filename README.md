@@ -32,6 +32,6 @@ Configure DATABRICKS_HOST e DATABRICKS_CLIENT_ID como variáveis do ambiente Git
 
 ## Pull requests
 
-O workflow `.github/workflows/ci.yml` é executado em pull requests para `main`. Configure no ambiente GitHub `dev` as variáveis `DATABRICKS_HOST` e `DATABRICKS_CLIENT_ID`, além da relação de confiança OIDC para o repositório. O job de validação executa `uv sync --locked`, Ruff, pytest e `databricks bundle validate`. Depois do merge, o job `deploy-dev` publica o bundle e aplica a wheel do projeto ao ambiente da pipeline serverless.
+O workflow `.github/workflows/ci.yml` é executado em pull requests para `main`. Configure no ambiente GitHub `dev` `DATABRICKS_HOST` e `DATABRICKS_CLIENT_ID` como Variables ou Secrets, além da relação de confiança OIDC para o repositório. O job de validação executa `uv sync --locked`, Ruff, pytest e `databricks bundle validate`. Depois do merge, o job `deploy-dev` publica o bundle e aplica a wheel do projeto ao ambiente da pipeline serverless.
 
 Use uma branch curta para cada mudança e preencha o checklist em `.github/pull_request_template.md`. O upload dos Parquet completos e a execução do alvo `full` ficam fora do fluxo de pull request.
