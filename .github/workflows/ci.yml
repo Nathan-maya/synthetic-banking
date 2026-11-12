@@ -1,83 +1,54 @@
-name: synthetic banking CI/CD
+
+name: synthetic-banking-ci
+
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      scope:
-        description: Pipeline input scope
-        type: choice
-        options: [sample, full]
-        default: sample
+
 permissions:
   contents: read
-  id-token: write
+
 jobs:
   validate:
+    name: Code Quality and Build
     runs-on: ubuntu-latest
-    environment: dev
-    env:
-      DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST || secrets.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID || secrets.DATABRICKS_CLIENT_ID }}
-      TARGET: ${{ inputs.scope == 'full' && 'full' || 'dev' }}
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: databricks/setup-cli@main
-      - run: uv sync --locked
-      - run: uv run ruff check .
-      - run: uv run pytest
-      - run: databricks bundle validate --target "$TARGET"
-  deploy-dev:
-    if: github.event_name == 'push'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: dev
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST || secrets.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID || secrets.DATABRICKS_CLIENT_ID }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: databricks/setup-cli@main
-      - run: databricks bundle deploy --target dev
-      - run: databricks fs mkdirs dbfs:/Volumes/org/default/synthetic_banking_landing/packages
-      - run: databricks fs cp dist/synthetic_banking-0.0.1-py3-none-any.whl dbfs:/Volumes/org/default/synthetic_banking_landing/packages/synthetic_banking-0.0.1-py3-none-any.whl --overwrite
-      - name: Apply pipeline environment
-        shell: bash
-        run: |
-          pipeline_id="$(databricks bundle summary --target dev --output json | jq -r '.resources.pipelines.synthetic_banking_etl.id')"
-          databricks pipelines apply-environment "$pipeline_id"
-  run-manual:
-    if: github.event_name == 'workflow_dispatch'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: dev
-    permissions:
-      contents: read
-      id-token: write
-    env:
-      DATABRICKS_AUTH_TYPE: github-oidc
-      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST || secrets.DATABRICKS_HOST }}
-      DATABRICKS_CLIENT_ID: ${{ vars.DATABRICKS_CLIENT_ID || secrets.DATABRICKS_CLIENT_ID }}
-      TARGET: ${{ inputs.scope == 'full' && 'full' || 'dev' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - uses: databricks/setup-cli@main
-      - run: databricks bundle deploy --target "$TARGET"
-      - run: databricks fs mkdirs dbfs:/Volumes/org/default/synthetic_banking_landing/packages
-      - run: databricks fs cp dist/synthetic_banking-0.0.1-py3-none-any.whl dbfs:/Volumes/org/default/synthetic_banking_landing/packages/synthetic_banking-0.0.1-py3-none-any.whl --overwrite
-      - name: Apply pipeline environment
-        shell: bash
-        run: |
-          pipeline_id="$(databricks bundle summary --target "$TARGET" --output json | jq -r '.resources.pipelines.synthetic_banking_etl.id')"
-          databricks pipelines apply-environment "$pipeline_id"
-      - run: databricks bundle run synthetic_banking_etl --target "$TARGET"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run Ruff
+        run: uv run ruff check .
+
+      - name: Collect tests
+        run: uv run pytest --collect-only -v
+
+      - name: Build Python Wheel
+        run: uv build --wheel
+
+      - name: Validate Databricks Bundle
+        uses: databricks/setup-cli@main
+
+      - name: Validate Bundle configuration
+        run: databricks bundle validate -t dev
+
+      - name: Upload Wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-banking-wheel
+          path: dist/*.whl
+          if-no-files-found: error
